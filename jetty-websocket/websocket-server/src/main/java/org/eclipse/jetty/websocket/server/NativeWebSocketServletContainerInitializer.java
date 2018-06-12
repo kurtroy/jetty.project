@@ -24,9 +24,11 @@ import javax.servlet.ServletContainerInitializer;
 import javax.servlet.ServletContext;
 import javax.servlet.ServletException;
 
+import org.eclipse.jetty.server.handler.ContextHandler;
+
 public class NativeWebSocketServletContainerInitializer implements ServletContainerInitializer
 {
-    public static NativeWebSocketConfiguration getDefaultFrom(ServletContext context)
+    public static NativeWebSocketConfiguration getDefaultFrom(ServletContext context) throws ServletException
     {
         final String KEY = NativeWebSocketConfiguration.class.getName();
         
@@ -35,6 +37,24 @@ public class NativeWebSocketServletContainerInitializer implements ServletContai
         {
             configuration = new NativeWebSocketConfiguration(context);
             context.setAttribute(KEY, configuration);
+
+            // Attach default configuration to context lifecycle
+            if (context instanceof ContextHandler.Context)
+            {
+                ContextHandler handler = ((ContextHandler.Context)context).getContextHandler();
+                try
+                {
+                    // Will stop with context
+                    handler.addBean(configuration);
+                    // Ensure configuration is started early for the benefit of other components
+                    // that need the information the configuration is holding.
+                    configuration.start();
+                }
+                catch (Exception e)
+                {
+                    throw new ServletException("Unable to start WebSocket Configuration", e);
+                }
+            }
         }
         return configuration;
     }

@@ -114,10 +114,9 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
      */
     public WebSocketClient(HttpClient httpClient, DecoratedObjectFactory objectFactory)
     {
-
-        this.httpClient = httpClient;
+        this.httpClient = Objects.requireNonNull(httpClient, "HttpClient");
         this.policy = new WebSocketPolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = objectFactory;
+        this.objectFactory = Objects.requireNonNull(objectFactory, "DecoratedObjectFactory");
         this.extensionRegistry = new WebSocketExtensionFactory(this);
         this.eventDriverFactory = new EventDriverFactory(this);
         this.sessionFactory = new WebSocketSessionFactory(this);
@@ -237,7 +236,7 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
         addBean(this.httpClient);
 
         this.policy = new WebSocketPolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = objectFactory;
+        this.objectFactory = Objects.requireNonNull(objectFactory, "DecoratedObjectFactory");
         
         this.extensionRegistry = new WebSocketExtensionFactory(this);
 
@@ -287,7 +286,7 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
         }
 
         this.policy = scope.getPolicy().clonePolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = getObjectFactory();
+        this.objectFactory = Objects.requireNonNull(scope.getObjectFactory(), "DecoratedObjectFactory");
         this.extensionRegistry = new WebSocketExtensionFactory(this);
         
         this.eventDriverFactory = eventDriverFactory;
