@@ -22,19 +22,19 @@ import java.util.Set;
 
 import javax.servlet.ServletContainerInitializer;
 import javax.servlet.ServletContext;
-import javax.servlet.ServletException;
 
 import org.eclipse.jetty.server.handler.ContextHandler;
 
 public class NativeWebSocketServletContainerInitializer implements ServletContainerInitializer
 {
-    public static NativeWebSocketConfiguration getDefaultFrom(ServletContext context) throws ServletException
+    public static NativeWebSocketConfiguration getDefaultFrom(ServletContext context)
     {
         final String KEY = NativeWebSocketConfiguration.class.getName();
         
         NativeWebSocketConfiguration configuration = (NativeWebSocketConfiguration) context.getAttribute(KEY);
         if (configuration == null)
         {
+            // Not provided to us, create a new default one.
             configuration = new NativeWebSocketConfiguration(context);
             context.setAttribute(KEY, configuration);
 
@@ -42,25 +42,15 @@ public class NativeWebSocketServletContainerInitializer implements ServletContai
             if (context instanceof ContextHandler.Context)
             {
                 ContextHandler handler = ((ContextHandler.Context)context).getContextHandler();
-                try
-                {
-                    // Will stop with context
-                    handler.addBean(configuration);
-                    // Ensure configuration is started early for the benefit of other components
-                    // that need the information the configuration is holding.
-                    configuration.start();
-                }
-                catch (Exception e)
-                {
-                    throw new ServletException("Unable to start WebSocket Configuration", e);
-                }
+                // Let ContextHandler handle configuration lifecycle
+                handler.addBean(configuration);
             }
         }
         return configuration;
     }
     
     @Override
-    public void onStartup(Set<Class<?>> c, ServletContext ctx) throws ServletException
+    public void onStartup(Set<Class<?>> c, ServletContext ctx)
     {
         // initialize
         getDefaultFrom(ctx);

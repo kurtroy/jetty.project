@@ -152,8 +152,8 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
     {
         this.context = context;
         this.defaultPolicy = policy;
-        this.objectFactory = objectFactory;
-        this.executor = executor;
+        this.objectFactory = objectFactory != null ? objectFactory : findDecoratedObjectFactory();
+        this.executor = executor != null ? executor : findExecutor();
         this.bufferPool = bufferPool;
         
         this.creator = this;
@@ -310,30 +310,11 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
         }
     }
     
-    @Override
-    protected void doStart() throws Exception
-    {
-        if(this.objectFactory == null)
-        {
-            this.objectFactory = findDecorator();
-        }
-
-        if(this.executor == null)
-        {
-            this.executor = findExecutor();
-        }
-    
-        Objects.requireNonNull(this.objectFactory, DecoratedObjectFactory.class.getName());
-        Objects.requireNonNull(this.executor, Executor.class.getName());
-        
-        super.doStart();
-    }
-
     /**
      * Attempt to find the DecoratedObjectFactory that should be used.
      * @return the DecoratedObjectFactory that should be used. (never null)
      */
-    protected DecoratedObjectFactory findDecorator()
+    private DecoratedObjectFactory findDecoratedObjectFactory()
     {
         DecoratedObjectFactory objectFactory;
 
@@ -356,18 +337,27 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
      * Attempt to find the Executor that should be used.
      * @return the Executor that should be used. (never null)
      */
-    protected Executor findExecutor()
+    private Executor findExecutor()
     {
         if(context != null)
         {
             // Attempt to pull Executor from ServletContext attribute
-            Executor contextExecutor = (Executor) context.getAttribute("org.eclipse.jetty.server.Executor");
+
+            // Try websocket specific one first
+            Executor contextExecutor = (Executor) context.getAttribute("org.eclipse.jetty.websocket.Executor");
             if(contextExecutor != null)
             {
                 return contextExecutor;
             }
 
-            // Attempt to pull Executor from Jetty Server, via ContextHandler
+            // Try ContextHandler version
+            contextExecutor = (Executor) context.getAttribute("org.eclipse.jetty.server.Executor");
+            if(contextExecutor != null)
+            {
+                return contextExecutor;
+            }
+
+            // Try Executor from Jetty Server
             ContextHandler contextHandler = ContextHandler.getContextHandler(context);
             if (contextHandler != null)
             {
@@ -379,7 +369,7 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
             }
         }
 
-        // Create a new one
+        // All else fails, Create a new one
         QueuedThreadPool threadPool = new QueuedThreadPool();
         threadPool.setName("WebSocketServerFactory");
         addManaged(threadPool);

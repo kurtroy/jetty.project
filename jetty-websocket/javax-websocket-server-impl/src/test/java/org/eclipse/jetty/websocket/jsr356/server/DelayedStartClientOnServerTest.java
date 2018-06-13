@@ -255,12 +255,17 @@ public class DelayedStartClientOnServerTest
         }
     }
     
-    @Test
+    @Test(timeout = 5000)
     public void testHttpClientThreads_AfterServerConnectTo() throws Exception
     {
         Server server = new Server(0);
         ServletContextHandler contextHandler = new ServletContextHandler();
         server.setHandler(contextHandler);
+
+        QueuedThreadPool wsExecutor = new QueuedThreadPool();
+        wsExecutor.setName("WebSocketOnServer@");
+
+        contextHandler.setAttribute("org.eclipse.jetty.websocket.Executor", wsExecutor);
         // Using JSR356 Server Techniques to connectToServer()
         contextHandler.addServlet(ServerConnectServlet.class, "/connect");
         javax.websocket.server.ServerContainer container = WebSocketServerContainerInitializer.configureContext(contextHandler);
@@ -272,7 +277,7 @@ public class DelayedStartClientOnServerTest
             assertThat("Response", response, startsWith("Connected to ws://"));
             List<String> threadNames = getThreadNames((ContainerLifeCycle)container, server);
             assertNoHttpClientPoolThreads(threadNames);
-            assertThat("Threads", threadNames, hasItem(containsString("WebSocketClient@")));
+            assertThat("Threads", threadNames, hasItem(containsString("WebSocketOnServer@")));
         }
         finally
         {
