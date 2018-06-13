@@ -30,11 +30,13 @@ import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Supplier;
 
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.io.ByteBufferPool;
 import org.eclipse.jetty.io.MappedByteBufferPool;
 import org.eclipse.jetty.util.DecoratedObjectFactory;
+import org.eclipse.jetty.util.DeprecationWarning;
 import org.eclipse.jetty.util.StringUtil;
 import org.eclipse.jetty.util.component.ContainerLifeCycle;
 import org.eclipse.jetty.util.log.Log;
@@ -69,7 +71,7 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
     private final HttpClient httpClient;
 
     // CDI layer
-    private final DecoratedObjectFactory objectFactory;
+    private final Supplier<DecoratedObjectFactory> objectFactorySupplier;
 
     // WebSocket Specifics
     private final WebSocketPolicy policy;
@@ -116,7 +118,8 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
     {
         this.httpClient = Objects.requireNonNull(httpClient, "HttpClient");
         this.policy = new WebSocketPolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = Objects.requireNonNull(objectFactory, "DecoratedObjectFactory");
+        final DecoratedObjectFactory decoratedObjectFactory = objectFactory != null ? objectFactory : newDecoratedObjectFactory();
+        this.objectFactorySupplier = () -> decoratedObjectFactory;
         this.extensionRegistry = new WebSocketExtensionFactory(this);
         this.eventDriverFactory = new EventDriverFactory(this);
         this.sessionFactory = new WebSocketSessionFactory(this);
@@ -236,7 +239,8 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
         addBean(this.httpClient);
 
         this.policy = new WebSocketPolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = Objects.requireNonNull(objectFactory, "DecoratedObjectFactory");
+        final DecoratedObjectFactory decoratedObjectFactory = objectFactory != null ? objectFactory : newDecoratedObjectFactory();
+        this.objectFactorySupplier = ()-> decoratedObjectFactory;
         
         this.extensionRegistry = new WebSocketExtensionFactory(this);
 
@@ -286,11 +290,19 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
         }
 
         this.policy = scope.getPolicy().clonePolicy(WebSocketBehavior.CLIENT);
-        this.objectFactory = Objects.requireNonNull(scope.getObjectFactory(), "DecoratedObjectFactory");
+        // Support Late Binding of Object Factory (for CDI)
+        this.objectFactorySupplier = () -> scope.getObjectFactory();
         this.extensionRegistry = new WebSocketExtensionFactory(this);
         
         this.eventDriverFactory = eventDriverFactory;
         this.sessionFactory = sessionFactory;
+    }
+
+    private DecoratedObjectFactory newDecoratedObjectFactory()
+    {
+        DecoratedObjectFactory objectFactory = new DecoratedObjectFactory();
+        objectFactory.addDecorator(new DeprecationWarning());
+        return objectFactory;
     }
 
     public Future<Session> connect(Object websocket, URI toUri) throws IOException
@@ -541,7 +553,7 @@ public class WebSocketClient extends ContainerLifeCycle implements WebSocketCont
     @Override
     public DecoratedObjectFactory getObjectFactory()
     {
-        return this.objectFactory;
+        return this.objectFactorySupplier.get();
     }
 
     public Set<WebSocketSession> getOpenSessions()

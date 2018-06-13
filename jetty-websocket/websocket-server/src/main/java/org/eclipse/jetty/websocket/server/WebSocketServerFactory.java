@@ -152,8 +152,8 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
     {
         this.context = context;
         this.defaultPolicy = policy;
-        this.objectFactory = objectFactory != null ? objectFactory : findDecoratedObjectFactory();
-        this.executor = executor != null ? executor : findExecutor();
+        this.objectFactory = objectFactory;
+        this.executor = executor;
         this.bufferPool = bufferPool;
         
         this.creator = this;
@@ -310,6 +310,22 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
         }
     }
     
+    @Override
+    protected void doStart() throws Exception
+    {
+        if(this.objectFactory == null)
+        {
+            this.objectFactory = findDecoratedObjectFactory();
+        }
+
+        if(this.executor == null)
+        {
+            this.executor = findExecutor();
+        }
+
+        super.doStart();
+    }
+
     /**
      * Attempt to find the DecoratedObjectFactory that should be used.
      * @return the DecoratedObjectFactory that should be used. (never null)
@@ -398,6 +414,8 @@ public class WebSocketServerFactory extends ContainerLifeCycle implements WebSoc
     @Override
     public DecoratedObjectFactory getObjectFactory()
     {
+        if(!isStarted())
+            throw new IllegalStateException("WebSocketServerFactory not started yet");
         return objectFactory;
     }
     
